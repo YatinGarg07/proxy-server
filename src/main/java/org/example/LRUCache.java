@@ -47,13 +47,13 @@ public class LRUCache {
         insert(node);
     }
 
-    public void removeNode(Node node){
+    private void removeNode(Node node){
         node.next.prev = node.prev;
         node.prev.next = node.next;
         capacity--;
     }
 
-    void delete(){
+    private void delete(){
         Node delNode = tail.prev;
         tail.prev = tail.prev.prev;
         tail.prev.next = tail;
@@ -64,7 +64,7 @@ public class LRUCache {
 
     }
 
-    void insert(Node node){
+    private void insert(Node node){
         node.next = head.next;
         node.next.prev = node;
 
@@ -80,7 +80,7 @@ public class LRUCache {
     }
 
 
-    class Node{
+    private class Node{
         String key,value;
         Node prev,next;
 
