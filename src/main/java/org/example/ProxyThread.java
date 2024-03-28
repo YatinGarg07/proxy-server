@@ -6,14 +6,16 @@ import java.io.*;
 import java.net.Socket;
 
 public class ProxyThread extends Thread{
-    private Socket clientSocket;
+    private final LRUCache cache;
+    private final Socket clientSocket;
     String serverAddress;
     int serverPort;
 
     boolean isConnectionTLS = false;
 
-    public ProxyThread(Socket clientSocket) {
+    public ProxyThread(Socket clientSocket, LRUCache cache) {
         this.clientSocket = clientSocket;
+        this.cache = cache;
     }
 
     @Override
@@ -22,14 +24,13 @@ public class ProxyThread extends Thread{
             //Client socket reader & writer
             BufferedReader clientReader = new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
             PrintWriter clientWriter = new PrintWriter(clientSocket.getOutputStream(), true);
+
             //Reading only 1st line in Request called requestLine
             String requestLine = clientReader.readLine();
 
-            //Marking ClientReader, marking to return to the current line in buffer when clientReader.reset() is called
-            clientReader.mark(0);
 
             // Checking if Connection is TLS
-            isConnectionTLS = isConnectionTLS(requestLine);
+            isConnectionTLS = Utils.isConnectionTLS(requestLine);
 
             //Extracting Server Address & Server Port from Request Line
             if(isConnectionTLS){
@@ -42,45 +43,28 @@ public class ProxyThread extends Thread{
             else{
                 serverPort = 80;
                 //reading 2nd Line Host:
-                serverAddress = "http://"+clientReader.readLine().split("Host: ")[1].split("\\n")[0];
+                serverAddress = requestLine.split(" ")[1];
             }
 
-            // Sending request to target server
-            if(isConnectionTLS){
-
+            //Checking Cache
+            if(!cache.get(serverAddress).equals("-1")){
+                //Cache Hit
+                //Getting Response From Cache
+                synchronized (cache){
+                    String resp = cache.get(serverAddress);
+                    System.out.println("Current Cache");
+                    //cache.printCache();
+                    System.out.println("Cache Hit for URL: " + serverAddress  + ": " + resp);
+                    clientWriter.println(resp);
+                }
 
 
             }
             else{
-
-                clientReader.reset();
-                StringBuilder reqBody = new StringBuilder(requestLine + "\n");
-
-                //Temporary String Used for reading From Buffer
-                String reqTemp;
-                while ((reqTemp = clientReader.readLine()) != null && !reqTemp.isEmpty()) {
-                    reqBody.append(reqTemp).append("\n");
-                    //clientWriter.println(response + "\n");
-                }
-
-               Request clientFormattedRequest = parseHttpRequest(reqBody.toString());
-                System.out.println(clientFormattedRequest);
-
-                //Client Request Being Forwarded to Target Server
-                OkHttpClient client = new OkHttpClient();
-                Call call = client.newCall(clientFormattedRequest);
-                Response response = call.execute();
-                if(response.code() == 200){
-                    System.out.println("Response from target server:");
-                    String resp = response.body().string();
-                    System.out.println(resp);
-
-                    //Passing Response To Client
-                    clientWriter.println(resp);
-                    response.close();
-                }
-
+                System.out.println("Cache Miss: Calling Target Server...");
+                requestToTargetServer(requestLine,clientReader,clientWriter);
             }
+
             //Closing Client Socket
             clientSocket.close();
         }
@@ -90,49 +74,41 @@ public class ProxyThread extends Thread{
 
     }
 
-    boolean isConnectionTLS(String data){
-        return data.contains("CONNECT");
-    }
+    void requestToTargetServer(String requestLine, BufferedReader clientReader, PrintWriter clientWriter) throws IOException {
+        // Sending request to target server
+        if(isConnectionTLS){
 
-    private static Request parseHttpRequest(String httpRequestString) {
-        String[] lines = httpRequestString.split("\n");
-        String[] requestLineParts = lines[0].split(" ");
+        }
+        else{
+            StringBuilder reqBody = new StringBuilder(requestLine + "\n");
 
-        String method = requestLineParts[0];
-        String url = requestLineParts[1];
-        String httpVersion = requestLineParts[2];
-
-        Request.Builder builder = new Request.Builder()
-                .method(method, null)
-                .url(url);
-
-        // Parse headers
-        for (int i = 1; i < lines.length; i++) {
-            String line = lines[i].trim();
-            if (line.isEmpty()) {
-                // End of headers
-                break;
+            //Temporary String Used for reading From Buffer
+            String reqTemp;
+            while ((reqTemp = clientReader.readLine()) != null && !reqTemp.isEmpty()) {
+                reqBody.append(reqTemp).append("\n");
             }
-            String[] headerParts = line.split(": ");
-            if(headerParts[1].contains("gzip")) continue;
-            builder.addHeader(headerParts[0], headerParts[1]);
+
+            Request clientFormattedRequest = Utils.parseHttpRequest(reqBody.toString());
+
+            //Client Request Being Forwarded to Target Server
+            OkHttpClient client = new OkHttpClient();
+            Call call = client.newCall(clientFormattedRequest);
+            Response response = call.execute();
+            if(response.code() == 200){
+                System.out.println("Got Response for target server: "+serverAddress);
+                String resp = response.body().string();
+
+                //Updating Cache
+                synchronized (cache){
+                    cache.put(serverAddress,resp);
+                }
+
+                //Passing Response To Client
+                clientWriter.println(resp);
+                response.close();
+            }
+
         }
-
-        // Parse body if present
-        if (lines.length > 1) {
-            String requestBody = lines[lines.length - 1];
-
-            //In GET Method there is no BODY
-            if(!method.equals("GET"))
-            builder.method(method, RequestBody.create(MediaType.get("text/plain"), requestBody));
-        }
-
-
-
-        return builder.build();
     }
-
-
-
 
 }
