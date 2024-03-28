@@ -32,12 +32,17 @@
                         <manifest>
                             <addClasspath>true</addClasspath>
                             <classpathPrefix>lib/</classpathPrefix>
-                            <mainClass>com.mypackage.MyClass</mainClass>
+                            <mainClass>org.example.ProxyServer</mainClass>
                         </manifest>
                     </archive>
                 </configuration>
             </plugin>
         </plugins>
     </build>
+
+<!--    FROM openjdk:21-jdk-->
+<!--    ARG JARFILE=*.jar-->
+<!--    COPY ./*.jar app.jar-->
+<!--    ENTRYPOINT ["java","-jar","/app.jar"]-->
 
 </project>
