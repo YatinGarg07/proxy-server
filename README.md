@@ -14,8 +14,15 @@ This project entails the development of a robust proxy server capable of handlin
 2. Access HTTP or HTTPS resources through the configured proxy server.
 3. Monitor server performance, cache utilization, and network traffic using provided logging and monitoring tools.
 
+4. Watch it here...
+   
+
 ## Contributing
 Contributions are welcome! Feel free to submit bug reports, feature requests, or pull requests to improve the project. Please adhere to the project's coding standards and guidelines.
+
+
+https://github.com/YatinGarg07/proxy-server/assets/73949161/8e621d45-78ba-4901-9f80-cbf78bbe84dc
+
 
 ## License
 This project is licensed under the [MIT License](LICENSE).
